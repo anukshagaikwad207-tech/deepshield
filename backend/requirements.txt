@@ -1,0 +1,24 @@
+# ── Core API ─────────────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9    # required for UploadFile / multipart form support
+
+# ── ML / Model inference ─────────────────────────────────────────────────────
+# torch can be large (~2 GB for CPU-only).  For CPU-only installs use:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+transformers>=4.40.0        # HuggingFace Transformers (ViT pipeline)
+pillow>=10.0.0              # Image decoding for the model pipeline
+
+# ── Video frame extraction ────────────────────────────────────────────────────
+# opencv-python-headless omits GUI (Qt/GTK) dependencies — suitable for servers.
+opencv-python-headless>=4.9.0
+
+# ── File type validation ──────────────────────────────────────────────────────
+# Pure-Python magic-byte detection; no libmagic system dependency required.
+filetype>=1.2.0
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0               # ASGI test client used by FastAPI TestClient
