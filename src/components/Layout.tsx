@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import {
   Shield,
   LayoutDashboard,
@@ -8,8 +9,11 @@ import {
   Menu,
   X,
   ChevronRight,
+  LogOut,
+  Cpu,
 } from 'lucide-react';
 import type { Page } from '@/types';
+import { checkBackendHealth } from '@/lib/api';
 
 interface NavItem {
   id: Page;
@@ -26,11 +30,30 @@ const NAV_ITEMS: NavItem[] = [
 interface LayoutProps {
   currentPage: Page;
   onNavigate: (page: Page, analysisId?: string) => void;
+  user?: User | null;
+  onSignOut?: () => void;
   children: React.ReactNode;
 }
 
-export default function Layout({ currentPage, onNavigate, children }: LayoutProps) {
+export default function Layout({
+  currentPage,
+  onNavigate,
+  user,
+  onSignOut,
+  children,
+}: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [backendOnline, setBackendOnline] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    checkBackendHealth().then((online) => {
+      if (mounted) setBackendOnline(online);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const navItems = NAV_ITEMS;
 
@@ -95,17 +118,67 @@ export default function Layout({ currentPage, onNavigate, children }: LayoutProp
           })}
         </nav>
 
-        {/* Demo badge */}
+        {/* User Card */}
+        {user && (
+          <div className="px-4 pb-3">
+            <div
+              className="rounded-xl p-3 flex items-center gap-3"
+              style={{ background: '#0f172a', border: '1px solid #1e2d4a' }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)', color: '#fff' }}
+              >
+                {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium truncate" style={{ color: '#f0f6ff' }}>
+                  {user.email}
+                </div>
+                <div className="text-[10px]" style={{ color: '#64748b' }}>
+                  Private Vault
+                </div>
+              </div>
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  title="Sign Out"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                >
+                  <LogOut size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* System status badge */}
         <div className="px-4 pb-6">
           <div
             className="rounded-lg px-3 py-3 text-xs"
-            style={{ background: '#0f172a', border: '1px solid #1e3a5f' }}
+            style={{
+              background: backendOnline ? 'rgba(52,211,153,0.05)' : '#0f172a',
+              border: `1px solid ${backendOnline ? 'rgba(52,211,153,0.25)' : '#1e3a5f'}`,
+            }}
           >
             <div className="flex items-center gap-2 mb-1">
-              <ScanLine size={13} style={{ color: '#f59e0b' }} />
-              <span className="font-semibold" style={{ color: '#f59e0b' }}>Demo Mode</span>
+              {backendOnline ? (
+                <>
+                  <Cpu size={13} style={{ color: '#34d399' }} />
+                  <span className="font-semibold" style={{ color: '#34d399' }}>AI Backend Online</span>
+                </>
+              ) : (
+                <>
+                  <ScanLine size={13} style={{ color: '#f59e0b' }} />
+                  <span className="font-semibold" style={{ color: '#f59e0b' }}>Demo Mode</span>
+                </>
+              )}
             </div>
-            <p style={{ color: '#64748b' }}>Results are simulated. Real AI models will be integrated in a future release.</p>
+            <p style={{ color: '#64748b' }}>
+              {backendOnline
+                ? 'FastAPI ViT deepfake detection model active.'
+                : 'Results are simulated. Connect FastAPI backend for live inference.'}
+            </p>
           </div>
         </div>
       </aside>
@@ -140,13 +213,32 @@ export default function Layout({ currentPage, onNavigate, children }: LayoutProp
             </nav>
           </div>
 
+          {/* System status pill */}
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
-            style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#22d3ee' }}
+            style={{
+              background: backendOnline ? 'rgba(52,211,153,0.1)' : 'rgba(6,182,212,0.1)',
+              border: `1px solid ${backendOnline ? 'rgba(52,211,153,0.25)' : 'rgba(6,182,212,0.25)'}`,
+              color: backendOnline ? '#34d399' : '#22d3ee',
+            }}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            System Online
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-emerald-400' : 'bg-cyan-400'} animate-pulse`}
+            />
+            {backendOnline ? 'AI Model Online' : 'System Online'}
           </div>
+
+          {/* User Sign Out Header Action */}
+          {user && onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+              style={{ border: '1px solid #1e2d4a' }}
+            >
+              <LogOut size={13} />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          )}
         </header>
 
         {/* Page content */}

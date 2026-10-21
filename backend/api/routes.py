@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.analysis.audio import analyze_audio_bytes
 from backend.analysis.image import analyze_image_bytes
@@ -32,7 +32,7 @@ async def health() -> dict:
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
-async def analyze(file: UploadFile) -> AnalysisResponse:
+async def analyze(file: UploadFile | str = File(...)) -> AnalysisResponse:
     """
     Analyse an uploaded image, video, or audio file for deepfake content.
 
@@ -40,7 +40,7 @@ async def analyze(file: UploadFile) -> AnalysisResponse:
     Uploaded bytes are never persisted to disk outside of temporary files
     required for video frame extraction; those are deleted immediately after use.
     """
-    if not file.filename:
+    if isinstance(file, str) or not getattr(file, "filename", None):
         raise HTTPException(status_code=400, detail="No file was attached to the request.")
 
     # Validate and detect media category

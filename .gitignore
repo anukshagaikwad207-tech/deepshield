@@ -21,3 +21,21 @@ dist-ssr
 *.sln
 *.sw?
 .env
+# Python virtual environments
+.venv/
+.venv*/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+
+# Windows system files
+desktop.ini

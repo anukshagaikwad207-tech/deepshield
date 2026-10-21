@@ -8,7 +8,9 @@ malicious file is renamed to a trusted extension.
 """
 from __future__ import annotations
 
+# pyrefly: ignore [missing-import]
 import filetype
+# pyrefly: ignore [missing-import]
 from fastapi import HTTPException, UploadFile
 
 from backend.config import settings
@@ -59,7 +61,7 @@ async def validate_upload(file: UploadFile) -> str:
     kind = filetype.guess(raw)
     if kind is None:
         raise HTTPException(
-            status_code=400,
+            status_code=415,
             detail=(
                 "Could not determine file type from content.  "
                 "Please upload a JPEG, PNG, WebP, GIF, BMP image; "

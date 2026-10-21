@@ -281,12 +281,15 @@ export default function Results({ analysisId, onNavigate }: ResultsProps) {
         <h2 className="text-lg font-semibold mb-2" style={{ color: '#f0f6ff' }}>
           Analysis not found
         </h2>
+        <p className="text-xs mb-4" style={{ color: '#64748b' }}>
+          This record either does not exist or belongs to another user vault.
+        </p>
         <button
           onClick={() => onNavigate('dashboard')}
-          className="text-sm"
-          style={{ color: '#38bdf8' }}
+          className="text-sm px-4 py-2 rounded-lg transition"
+          style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}
         >
-          Go to Dashboard
+          Return to Dashboard
         </button>
       </div>
     );

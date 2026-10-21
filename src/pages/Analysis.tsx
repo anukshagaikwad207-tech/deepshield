@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Shield, CheckCircle, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { generateDemoResult } from '@/lib/demo';
-import type { Analysis as AnalysisType, Page } from '@/types';
+import type { Page } from '@/types';
 
 interface AnalysisProps {
   analysisId: string;
@@ -56,11 +56,15 @@ export default function Analysis({ analysisId, onNavigate }: AnalysisProps) {
         .eq('id', analysisId)
         .maybeSingle();
 
-      if (!data) return;
+      if (!data) {
+        console.error('Analysis record not found for id:', analysisId);
+        onNavigate('dashboard');
+        return;
+      }
 
       const result = generateDemoResult(data.file_type);
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('analyses')
         .update({
           status: 'complete',
@@ -70,6 +74,10 @@ export default function Analysis({ analysisId, onNavigate }: AnalysisProps) {
           explanation: result.explanation,
         })
         .eq('id', analysisId);
+
+      if (updateError) {
+        console.error('Failed to update analysis record:', updateError);
+      }
 
       setTimeout(() => onNavigate('results', analysisId), 600);
     }

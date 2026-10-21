@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload as UploadIcon,
   FileImage,
@@ -13,7 +13,6 @@ import {
 import type { Page } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { analyzeFile } from '@/lib/api';
-import { generateDemoResult } from '@/lib/demo';
 
 const ACCEPTED: Record<string, string[]> = {
   image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'],
@@ -35,8 +34,12 @@ function detectType(file: File): 'image' | 'video' | 'audio' | null {
   return null;
 }
 
+import type { User } from '@supabase/supabase-js';
+import { checkBackendHealth } from '@/lib/api';
+
 interface UploadProps {
   onNavigate: (page: Page, analysisId?: string) => void;
+  user?: User | null;
 }
 
 type SubmitPhase = 'idle' | 'uploading' | 'analyzing' | 'saving';
@@ -45,15 +48,26 @@ const PHASE_LABELS: Record<SubmitPhase, string> = {
   idle: '',
   uploading: 'Uploading file…',
   analyzing: 'Running deepfake detection…',
-  saving: 'Saving results…',
+  saving: 'Saving results to your vault…',
 };
 
-export default function Upload({ onNavigate }: UploadProps) {
+export default function Upload({ onNavigate, user }: UploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<SubmitPhase>('idle');
+  const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    checkBackendHealth().then((alive) => {
+      if (mounted) setBackendAlive(alive);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleFile = useCallback((f: File) => {
     setError(null);
@@ -93,6 +107,19 @@ export default function Upload({ onNavigate }: UploadProps) {
     setError(null);
     setPhase('uploading');
 
+    // ── Ensure authenticated user ─────────────────────────────────────────
+    let currentUser = user;
+    if (!currentUser) {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUser = authData?.user ?? null;
+    }
+
+    if (!currentUser) {
+      setError('You must be signed in to submit an analysis.');
+      setPhase('idle');
+      return;
+    }
+
     // ── Try real backend ──────────────────────────────────────────────────
     let backendResult: Awaited<ReturnType<typeof analyzeFile>> = null;
     let backendError: string | null = null;
@@ -109,10 +136,11 @@ export default function Upload({ onNavigate }: UploadProps) {
     setPhase('saving');
 
     if (backendResult) {
-      // Real inference succeeded
+      // Real inference succeeded — save with authenticated user_id
       const { data, error: insertError } = await supabase
         .from('analyses')
         .insert({
+          user_id: currentUser.id,
           file_name: file.name,
           file_type: backendResult.file_type,
           file_size: file.size,
@@ -130,7 +158,8 @@ export default function Upload({ onNavigate }: UploadProps) {
         .single();
 
       if (insertError || !data) {
-        setError('Failed to save results. Please try again.');
+        console.error('Failed to save analysis to Supabase:', insertError);
+        setError(insertError?.message || 'Failed to save results. Please try again.');
         setPhase('idle');
         return;
       }
@@ -140,14 +169,14 @@ export default function Upload({ onNavigate }: UploadProps) {
     }
 
     // ── Fall back to demo simulation ──────────────────────────────────────
-    // Show a warning if the backend was configured but failed
     if (backendError) {
-      setError(`Backend unavailable (${backendError}). Running in demo mode instead.`);
+      console.warn(`Backend unavailable (${backendError}). Running in demo mode instead.`);
     }
 
     const { data, error: insertError } = await supabase
       .from('analyses')
       .insert({
+        user_id: currentUser.id,
         file_name: file.name,
         file_type: fileType,
         file_size: file.size,
@@ -158,7 +187,8 @@ export default function Upload({ onNavigate }: UploadProps) {
       .single();
 
     if (insertError || !data) {
-      setError('Failed to start analysis. Please try again.');
+      console.error('Failed to save demo analysis to Supabase:', insertError);
+      setError(insertError?.message || 'Failed to start analysis. Please try again.');
       setPhase('idle');
       return;
     }
@@ -175,8 +205,6 @@ export default function Upload({ onNavigate }: UploadProps) {
     { type: 'audio', icon: <FileAudio size={20} />, label: 'Audio', exts: 'MP3, WAV, FLAC, OGG, AAC', color: '#34d399' },
   ];
 
-  const backendConfigured = !!import.meta.env.VITE_API_URL;
-
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
@@ -191,15 +219,17 @@ export default function Upload({ onNavigate }: UploadProps) {
       <div
         className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs"
         style={{
-          background: backendConfigured ? 'rgba(52,211,153,0.07)' : 'rgba(251,191,36,0.07)',
-          border: `1px solid ${backendConfigured ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)'}`,
-          color: backendConfigured ? '#34d399' : '#fbbf24',
+          background: backendAlive ? 'rgba(52,211,153,0.07)' : 'rgba(251,191,36,0.07)',
+          border: `1px solid ${backendAlive ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)'}`,
+          color: backendAlive ? '#34d399' : '#fbbf24',
         }}
       >
-        {backendConfigured ? <Cpu size={13} /> : <FlaskConical size={13} />}
-        {backendConfigured
-          ? 'Real AI backend configured — analysis will use the deepfake detection model.'
-          : 'No backend configured — results will use demo simulation. See README to set up the backend.'}
+        {backendAlive ? <Cpu size={13} /> : <FlaskConical size={13} />}
+        {backendAlive === true
+          ? 'Real AI backend online — analysis will use the deepfake detection model.'
+          : backendAlive === false
+            ? 'Backend offline — results will run in demo simulation mode. Start the FastAPI backend for real inference.'
+            : 'Connecting to AI detection backend…'}
       </div>
 
       {/* Drop zone */}

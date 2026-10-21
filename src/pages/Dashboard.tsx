@@ -16,15 +16,13 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { Analysis, Page } from '@/types';
 
+import type { User } from '@supabase/supabase-js';
+
 interface DashboardProps {
   onNavigate: (page: Page, analysisId?: string) => void;
+  user?: User | null;
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -60,22 +58,36 @@ function VerdictBadge({ verdict }: { verdict: string | null }) {
   );
 }
 
-export default function Dashboard({ onNavigate }: DashboardProps) {
+export default function Dashboard({ onNavigate, user }: DashboardProps) {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('analyses')
-        .select('*')
+      setLoading(true);
+      let currentUser = user;
+      if (!currentUser) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUser = authData?.user ?? null;
+      }
+
+      let query = supabase.from('analyses').select('*');
+      if (currentUser?.id) {
+        query = query.eq('user_id', currentUser.id);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(20);
+
+      if (error) {
+        console.error('Error fetching dashboard records:', error);
+      }
       if (data) setAnalyses(data as Analysis[]);
       setLoading(false);
     }
     load();
-  }, []);
+  }, [user]);
 
   const completed = analyses.filter((a) => a.status === 'complete');
   const fakeCount = completed.filter((a) => a.verdict === 'likely_fake').length;

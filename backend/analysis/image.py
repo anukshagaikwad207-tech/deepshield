@@ -183,12 +183,25 @@ def analyze_image_bytes(image_bytes: bytes, file_name: str) -> AnalysisResponse:
     except Exception as exc:
         raise ValueError(f"Cannot decode image: {exc}") from exc
 
-    raw: list[dict] = pipe(image)
+        raw: list[dict] = pipe(image, top_k=2)
 
-    # Normalise label names to lowercase for reliable lookup
-    scores: dict[str, float] = {item["label"].lower(): item["score"] for item in raw}
-    fake_score = scores.get("fake", 0.0)
-    real_score = scores.get("real", 1.0 - fake_score)
+    logger.info("Raw predictions for %s: %s", file_name, raw)
+
+    # Normalise labels and scores
+    scores = {
+        str(item["label"]).strip().lower(): float(item["score"])
+        for item in raw
+    }
+
+    # Check that both expected labels exist
+    if "fake" not in scores or "real" not in scores:
+        raise RuntimeError(
+            f"Unexpected image model labels: "
+            f"{[item.get('label') for item in raw]}"
+        )
+
+    fake_score = scores["fake"]
+    real_score = scores["real"]
 
     verdict = _map_verdict(fake_score)
     authenticity_score = round((1.0 - fake_score) * 100)

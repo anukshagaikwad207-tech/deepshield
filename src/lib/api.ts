@@ -7,7 +7,8 @@
  */
 import type { Indicator, Verdict, FileType } from '@/types';
 
-const API_URL = import.meta.env.VITE_API_URL as string | undefined;
+const RAW_API_URL = import.meta.env.VITE_API_URL as string | undefined;
+const API_URL = RAW_API_URL ? RAW_API_URL.replace(/\/+$/, '') : undefined;
 
 export interface BackendResult {
   file_name: string;

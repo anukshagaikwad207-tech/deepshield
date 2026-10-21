@@ -10,6 +10,7 @@ export interface Indicator {
 
 export interface Analysis {
   id: string;
+  user_id?: string | null;
   created_at: string;
   file_name: string;
   file_type: FileType;
@@ -21,4 +22,4 @@ export interface Analysis {
   explanation: string | null;
 }
 
-export type Page = 'dashboard' | 'upload' | 'analysis' | 'results' | 'about';
+export type Page = 'dashboard' | 'upload' | 'analysis' | 'results' | 'about' | 'auth';
