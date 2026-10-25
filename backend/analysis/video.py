@@ -205,7 +205,7 @@ def analyze_video_bytes(video_bytes: bytes, file_name: str) -> AnalysisResponse:
     Writes bytes to a temporary file, extracts frames, runs the image model
     on each, and aggregates results.  The temporary file is always deleted.
     """
-    from backend.analysis.image import _get_pipeline, _build_indicators as _img_indicators
+    from backend.analysis.image import _get_pipeline, _build_indicators as _img_indicators, extract_model_scores
 
     # Write to a temp file so OpenCV can open it by path
     suffix = _guess_suffix(file_name)
@@ -227,9 +227,7 @@ def analyze_video_bytes(video_bytes: bytes, file_name: str) -> AnalysisResponse:
 
     for frame_idx, timestamp, pil_image in frames:
         raw = pipe(pil_image)
-        scores = {item["label"].lower(): item["score"] for item in raw}
-        fake = scores.get("fake", 0.0)
-        real = scores.get("real", 1.0 - fake)
+        fake, real = extract_model_scores(raw)
         fake_scores.append(fake)
         frame_results.append(
             FrameResult(

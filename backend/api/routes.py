@@ -18,6 +18,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from backend.analysis.audio import analyze_audio_bytes
 from backend.analysis.image import analyze_image_bytes
 from backend.analysis.video import analyze_video_bytes
+from backend.config import settings
 from backend.schemas.models import AnalysisResponse
 from backend.utils.validation import validate_upload
 
@@ -28,7 +29,7 @@ router = APIRouter()
 @router.get("/health")
 async def health() -> dict:
     """Liveness check.  Returns 200 when the backend is running."""
-    return {"status": "ok", "model": "dima806/deepfake_vs_real_image_detection"}
+    return {"status": "ok", "model": settings.image_model_id}
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
